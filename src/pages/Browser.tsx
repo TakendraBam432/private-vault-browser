@@ -114,11 +114,27 @@ export default function Browser() {
         visitedAt: Date.now(),
       });
     } else {
-      // Perform search
+      // Perform search - fallback to DuckDuckGo if no local results
       const index = await storage.getSearchIndex();
       const results = searchIndex(input, index);
-      setSearchResults(results);
-      setShowSearch(true);
+      
+      if (results.length === 0) {
+        // No local results, use external search engine
+        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
+        updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
+        setAddressBarValue(searchUrl);
+        setShowSearch(false);
+        
+        await storage.addHistory({
+          id: crypto.randomUUID(),
+          url: searchUrl,
+          title: `Search: ${input}`,
+          visitedAt: Date.now(),
+        });
+      } else {
+        setSearchResults(results);
+        setShowSearch(true);
+      }
     }
   };
 
