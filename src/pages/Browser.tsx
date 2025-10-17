@@ -10,6 +10,7 @@ import {
   History,
   Settings,
 } from "lucide-react";
+import { Browser as CapacitorBrowser } from "@capacitor/browser";
 import { BrowserTab } from "@/components/browser/BrowserTab";
 import { AddressBar } from "@/components/browser/AddressBar";
 import { WebView } from "@/components/browser/WebView";
@@ -114,16 +115,26 @@ export default function Browser() {
         visitedAt: Date.now(),
       });
     } else {
-      // Perform search - fallback to DuckDuckGo if no local results
+      // Perform search - fallback to external search if no local results
       const index = await storage.getSearchIndex();
       const results = searchIndex(input, index);
       
       if (results.length === 0) {
-        // No local results, use external search engine
+        // No local results, open in system browser
         const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
-        updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
-        setAddressBarValue(searchUrl);
-        setShowSearch(false);
+        
+        try {
+          await CapacitorBrowser.open({ url: searchUrl });
+          toast({
+            title: "Search opened",
+            description: `Searching for "${input}" in external browser`,
+          });
+        } catch (error) {
+          // Fallback for web preview
+          updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
+          setAddressBarValue(searchUrl);
+          setShowSearch(false);
+        }
         
         await storage.addHistory({
           id: crypto.randomUUID(),
