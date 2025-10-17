@@ -13,7 +13,6 @@ import {
 import { Browser as CapacitorBrowser } from "@capacitor/browser";
 import { BrowserTab } from "@/components/browser/BrowserTab";
 import { AddressBar } from "@/components/browser/AddressBar";
-import { WebView } from "@/components/browser/WebView";
 import { SearchResults } from "@/components/browser/SearchResults";
 import { Button } from "@/components/ui/button";
 import { storage, BrowserTab as TabType } from "@/lib/storage";
@@ -101,47 +100,65 @@ export default function Browser() {
     if (!input.trim()) return;
 
     if (isUrl(input)) {
-      // Navigate to URL
+      // Navigate to URL in native browser
       const url = normalizeUrl(input);
-      updateActiveTab({ url, title: url });
-      setAddressBarValue(url);
-      setShowSearch(false);
+      
+      try {
+        await CapacitorBrowser.open({ 
+          url,
+          presentationStyle: 'popover'
+        });
+        
+        updateActiveTab({ url, title: url });
+        setAddressBarValue(url);
+        setShowSearch(false);
 
-      // Add to history
-      await storage.addHistory({
-        id: crypto.randomUUID(),
-        url,
-        title: url,
-        visitedAt: Date.now(),
-      });
+        await storage.addHistory({
+          id: crypto.randomUUID(),
+          url,
+          title: url,
+          visitedAt: Date.now(),
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Could not open URL",
+          variant: "destructive",
+        });
+      }
     } else {
-      // Perform search - fallback to external search if no local results
+      // Perform search
       const index = await storage.getSearchIndex();
       const results = searchIndex(input, index);
       
       if (results.length === 0) {
-        // No local results, open in system browser
-        const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
+        // No local results, search with Google
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input)}`;
         
         try {
-          await CapacitorBrowser.open({ url: searchUrl });
+          await CapacitorBrowser.open({ 
+            url: searchUrl,
+            presentationStyle: 'popover'
+          });
+          
           toast({
-            title: "Search opened",
-            description: `Searching for "${input}" in external browser`,
+            title: "Searching",
+            description: `"${input}"`,
+          });
+
+          await storage.addHistory({
+            id: crypto.randomUUID(),
+            url: searchUrl,
+            title: `Search: ${input}`,
+            visitedAt: Date.now(),
           });
         } catch (error) {
-          // Fallback for web preview
-          updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
-          setAddressBarValue(searchUrl);
-          setShowSearch(false);
+          toast({
+            title: "Error",
+            description: "Could not perform search",
+            variant: "destructive",
+          });
         }
-        
-        await storage.addHistory({
-          id: crypto.randomUUID(),
-          url: searchUrl,
-          title: `Search: ${input}`,
-          visitedAt: Date.now(),
-        });
       } else {
         setSearchResults(results);
         setShowSearch(true);
@@ -149,10 +166,30 @@ export default function Browser() {
     }
   };
 
-  const handleSelectSearchResult = (url: string) => {
-    updateActiveTab({ url, title: url });
-    setAddressBarValue(url);
-    setShowSearch(false);
+  const handleSelectSearchResult = async (url: string) => {
+    try {
+      await CapacitorBrowser.open({ 
+        url,
+        presentationStyle: 'popover'
+      });
+      
+      updateActiveTab({ url, title: url });
+      setAddressBarValue(url);
+      setShowSearch(false);
+
+      await storage.addHistory({
+        id: crypto.randomUUID(),
+        url,
+        title: url,
+        visitedAt: Date.now(),
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not open URL",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePageLoad = (title: string) => {
@@ -246,10 +283,20 @@ export default function Browser() {
           onSelectResult={handleSelectSearchResult}
         />
       ) : (
-        <WebView
-          url={activeTab?.url || ""}
-          onLoad={handlePageLoad}
-        />
+        <div className="flex-1 flex items-center justify-center bg-background p-8">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="text-6xl mb-4">🔒</div>
+            <h2 className="text-2xl font-bold text-foreground">Private Browser</h2>
+            <p className="text-muted-foreground">
+              Enter a URL or search term above. All browsing opens in your device's secure browser.
+            </p>
+            <div className="pt-4 space-y-2 text-sm text-muted-foreground">
+              <p>✓ No tracking</p>
+              <p>✓ Encrypted history</p>
+              <p>✓ Private search</p>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
