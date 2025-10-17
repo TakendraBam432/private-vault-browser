@@ -1,15 +1,17 @@
 import { motion } from "framer-motion";
-import { ExternalLink, Search } from "lucide-react";
+import { ExternalLink, Search, Database } from "lucide-react";
 import { SearchResult } from "@/lib/search";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface SearchResultsProps {
   query: string;
   results: SearchResult[];
   onSelectResult: (url: string) => void;
+  onOpenIndexManager?: () => void;
 }
 
-export function SearchResults({ query, results, onSelectResult }: SearchResultsProps) {
+export function SearchResults({ query, results, onSelectResult, onOpenIndexManager }: SearchResultsProps) {
   if (!results.length) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background p-8">
@@ -17,8 +19,14 @@ export function SearchResults({ query, results, onSelectResult }: SearchResultsP
           <Search className="w-12 h-12 mx-auto text-muted-foreground/50" />
           <h3 className="text-lg font-semibold">No results found</h3>
           <p className="text-sm text-muted-foreground">
-            Try searching for something else or browse to a website to index it
+            No results for "{query}". Build your search index to find what you're looking for.
           </p>
+          {onOpenIndexManager && (
+            <Button onClick={onOpenIndexManager} className="mt-4">
+              <Database className="w-4 h-4 mr-2" />
+              Manage Search Index
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -28,10 +36,16 @@ export function SearchResults({ query, results, onSelectResult }: SearchResultsP
     <div className="flex-1 overflow-y-auto bg-background p-6">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Search info */}
-        <div className="space-y-1">
+        <div className="flex items-center justify-between">
           <h2 className="text-sm text-muted-foreground">
             About {results.length} results for "{query}"
           </h2>
+          {onOpenIndexManager && (
+            <Button variant="outline" size="sm" onClick={onOpenIndexManager}>
+              <Database className="w-4 h-4 mr-2" />
+              Index
+            </Button>
+          )}
         </div>
 
         {/* Results */}

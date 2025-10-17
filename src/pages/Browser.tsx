@@ -9,11 +9,13 @@ import {
   Bookmark,
   History,
   Settings,
+  Database,
 } from "lucide-react";
 import { Browser as CapacitorBrowser } from "@capacitor/browser";
 import { BrowserTab } from "@/components/browser/BrowserTab";
 import { AddressBar } from "@/components/browser/AddressBar";
 import { SearchResults } from "@/components/browser/SearchResults";
+import { IndexManager } from "@/components/browser/IndexManager";
 import { Button } from "@/components/ui/button";
 import { storage, BrowserTab as TabType } from "@/lib/storage";
 import { searchIndex, isUrl, normalizeUrl, SearchResult } from "@/lib/search";
@@ -26,6 +28,7 @@ export default function Browser() {
   const [addressBarValue, setAddressBarValue] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [showIndexManager, setShowIndexManager] = useState(false);
   const { toast } = useToast();
 
   // Initialize with one tab
@@ -127,42 +130,12 @@ export default function Browser() {
         });
       }
     } else {
-      // Perform search
+      // Perform LOCAL search only
       const index = await storage.getSearchIndex();
       const results = searchIndex(input, index);
       
-      if (results.length === 0) {
-        // No local results, search with Google
-        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(input)}`;
-        
-        try {
-          await CapacitorBrowser.open({ 
-            url: searchUrl,
-            presentationStyle: 'popover'
-          });
-          
-          toast({
-            title: "Searching",
-            description: `"${input}"`,
-          });
-
-          await storage.addHistory({
-            id: crypto.randomUUID(),
-            url: searchUrl,
-            title: `Search: ${input}`,
-            visitedAt: Date.now(),
-          });
-        } catch (error) {
-          toast({
-            title: "Error",
-            description: "Could not perform search",
-            variant: "destructive",
-          });
-        }
-      } else {
-        setSearchResults(results);
-        setShowSearch(true);
-      }
+      setSearchResults(results);
+      setShowSearch(true);
     }
   };
 
@@ -235,6 +208,14 @@ export default function Browser() {
               <SheetTitle>Browser Menu</SheetTitle>
             </SheetHeader>
             <div className="mt-6 space-y-2">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start gap-2"
+                onClick={() => setShowIndexManager(true)}
+              >
+                <Database className="w-4 h-4" />
+                Search Index
+              </Button>
               <Button variant="ghost" className="w-full justify-start gap-2">
                 <Bookmark className="w-4 h-4" />
                 Bookmarks
@@ -281,6 +262,7 @@ export default function Browser() {
           query={addressBarValue}
           results={searchResults}
           onSelectResult={handleSelectSearchResult}
+          onOpenIndexManager={() => setShowIndexManager(true)}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center bg-background p-8">
@@ -298,6 +280,18 @@ export default function Browser() {
           </div>
         </div>
       )}
+
+      {/* Index Manager Sheet */}
+      <Sheet open={showIndexManager} onOpenChange={setShowIndexManager}>
+        <SheetContent side="bottom" className="h-[80vh]">
+          <SheetHeader>
+            <SheetTitle>Search Index Manager</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 overflow-y-auto h-[calc(80vh-100px)]">
+            <IndexManager onIndexUpdated={() => {}} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

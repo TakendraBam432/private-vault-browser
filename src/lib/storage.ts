@@ -31,6 +31,7 @@ export interface SearchIndex {
   content: string;
   keywords: string[];
   timestamp: number;
+  lastIndexed: number;
 }
 
 // Encrypted storage wrapper
