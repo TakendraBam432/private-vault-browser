@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Browser as CapacitorBrowser } from "@capacitor/browser";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -16,6 +15,7 @@ import { BrowserTab } from "@/components/browser/BrowserTab";
 import { AddressBar } from "@/components/browser/AddressBar";
 import { SearchResults } from "@/components/browser/SearchResults";
 import { IndexManager } from "@/components/browser/IndexManager";
+import { WebView } from "@/components/browser/WebView";
 import { Button } from "@/components/ui/button";
 import { storage, BrowserTab as TabType } from "@/lib/storage";
 import { searchIndex, isUrl, normalizeUrl, SearchResult } from "@/lib/search";
@@ -103,11 +103,13 @@ export default function Browser() {
     if (!input.trim()) return;
 
     if (isUrl(input)) {
-      // Open URL in Capacitor browser
+      // Navigate to URL internally
       const url = normalizeUrl(input);
       
-      await CapacitorBrowser.open({ url });
-      
+      updateActiveTab({ url, title: url });
+      setAddressBarValue(url);
+      setShowSearch(false);
+
       await storage.addHistory({
         id: crypto.randomUUID(),
         url,
@@ -118,7 +120,9 @@ export default function Browser() {
       // Use DuckDuckGo for search
       const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
       
-      await CapacitorBrowser.open({ url: searchUrl });
+      updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
+      setAddressBarValue(searchUrl);
+      setShowSearch(false);
 
       await storage.addHistory({
         id: crypto.randomUUID(),
@@ -130,7 +134,9 @@ export default function Browser() {
   };
 
   const handleSelectSearchResult = async (url: string) => {
-    await CapacitorBrowser.open({ url });
+    updateActiveTab({ url, title: url });
+    setAddressBarValue(url);
+    setShowSearch(false);
 
     await storage.addHistory({
       id: crypto.randomUUID(),
@@ -238,6 +244,11 @@ export default function Browser() {
           results={searchResults}
           onSelectResult={handleSelectSearchResult}
           onOpenIndexManager={() => setShowIndexManager(true)}
+        />
+      ) : activeTab?.url ? (
+        <WebView
+          url={activeTab.url}
+          onLoadEnd={handlePageLoad}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center bg-background p-8">
