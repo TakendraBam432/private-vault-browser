@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
+import { Capacitor } from "@capacitor/core";
+import { Browser as CapacitorBrowser } from "@capacitor/browser";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -99,16 +101,29 @@ export default function Browser() {
     saveTabs(newTabs);
   };
 
+  const openUrl = async (url: string) => {
+    // Use native browser overlay on mobile, iframe on web
+    if (Capacitor.isNativePlatform()) {
+      await CapacitorBrowser.open({ 
+        url,
+        presentationStyle: 'popover',
+        toolbarColor: '#1a1a1a'
+      });
+    } else {
+      // Fallback to iframe for web preview
+      updateActiveTab({ url, title: url });
+      setAddressBarValue(url);
+      setShowSearch(false);
+    }
+  };
+
   const handleAddressBarSubmit = async (input: string) => {
     if (!input.trim()) return;
 
     if (isUrl(input)) {
-      // Navigate to URL internally
+      // Navigate to URL
       const url = normalizeUrl(input);
-      
-      updateActiveTab({ url, title: url });
-      setAddressBarValue(url);
-      setShowSearch(false);
+      await openUrl(url);
 
       await storage.addHistory({
         id: crypto.randomUUID(),
@@ -119,10 +134,7 @@ export default function Browser() {
     } else {
       // Use DuckDuckGo for search
       const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
-      
-      updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
-      setAddressBarValue(searchUrl);
-      setShowSearch(false);
+      await openUrl(searchUrl);
 
       await storage.addHistory({
         id: crypto.randomUUID(),
@@ -134,9 +146,7 @@ export default function Browser() {
   };
 
   const handleSelectSearchResult = async (url: string) => {
-    updateActiveTab({ url, title: url });
-    setAddressBarValue(url);
-    setShowSearch(false);
+    await openUrl(url);
 
     await storage.addHistory({
       id: crypto.randomUUID(),
