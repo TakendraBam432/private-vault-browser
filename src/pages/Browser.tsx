@@ -11,11 +11,11 @@ import {
   Settings,
   Database,
 } from "lucide-react";
-import { Browser as CapacitorBrowser } from "@capacitor/browser";
 import { BrowserTab } from "@/components/browser/BrowserTab";
 import { AddressBar } from "@/components/browser/AddressBar";
 import { SearchResults } from "@/components/browser/SearchResults";
 import { IndexManager } from "@/components/browser/IndexManager";
+import { WebView } from "@/components/browser/WebView";
 import { Button } from "@/components/ui/button";
 import { storage, BrowserTab as TabType } from "@/lib/storage";
 import { searchIndex, isUrl, normalizeUrl, SearchResult } from "@/lib/search";
@@ -103,48 +103,8 @@ export default function Browser() {
     if (!input.trim()) return;
 
     if (isUrl(input)) {
-      // Navigate to URL in native browser
+      // Navigate to URL internally
       const url = normalizeUrl(input);
-      
-      try {
-        await CapacitorBrowser.open({ 
-          url,
-          presentationStyle: 'popover'
-        });
-        
-        updateActiveTab({ url, title: url });
-        setAddressBarValue(url);
-        setShowSearch(false);
-
-        await storage.addHistory({
-          id: crypto.randomUUID(),
-          url,
-          title: url,
-          visitedAt: Date.now(),
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Could not open URL",
-          variant: "destructive",
-        });
-      }
-    } else {
-      // Perform LOCAL search only
-      const index = await storage.getSearchIndex();
-      const results = searchIndex(input, index);
-      
-      setSearchResults(results);
-      setShowSearch(true);
-    }
-  };
-
-  const handleSelectSearchResult = async (url: string) => {
-    try {
-      await CapacitorBrowser.open({ 
-        url,
-        presentationStyle: 'popover'
-      });
       
       updateActiveTab({ url, title: url });
       setAddressBarValue(url);
@@ -156,13 +116,34 @@ export default function Browser() {
         title: url,
         visitedAt: Date.now(),
       });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Could not open URL",
-        variant: "destructive",
+    } else {
+      // Use DuckDuckGo for search
+      const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(input)}`;
+      
+      updateActiveTab({ url: searchUrl, title: `Search: ${input}` });
+      setAddressBarValue(searchUrl);
+      setShowSearch(false);
+
+      await storage.addHistory({
+        id: crypto.randomUUID(),
+        url: searchUrl,
+        title: `Search: ${input}`,
+        visitedAt: Date.now(),
       });
     }
+  };
+
+  const handleSelectSearchResult = async (url: string) => {
+    updateActiveTab({ url, title: url });
+    setAddressBarValue(url);
+    setShowSearch(false);
+
+    await storage.addHistory({
+      id: crypto.randomUUID(),
+      url,
+      title: url,
+      visitedAt: Date.now(),
+    });
   };
 
   const handlePageLoad = (title: string) => {
@@ -264,18 +245,23 @@ export default function Browser() {
           onSelectResult={handleSelectSearchResult}
           onOpenIndexManager={() => setShowIndexManager(true)}
         />
+      ) : activeTab?.url ? (
+        <WebView
+          url={activeTab.url}
+          onLoadEnd={handlePageLoad}
+        />
       ) : (
         <div className="flex-1 flex items-center justify-center bg-background p-8">
           <div className="text-center space-y-4 max-w-md">
             <div className="text-6xl mb-4">🔒</div>
             <h2 className="text-2xl font-bold text-foreground">Private Browser</h2>
             <p className="text-muted-foreground">
-              Enter a URL or search term above. All browsing opens in your device's secure browser.
+              Enter a URL or search term above to start browsing.
             </p>
             <div className="pt-4 space-y-2 text-sm text-muted-foreground">
-              <p>✓ No tracking</p>
+              <p>✓ DuckDuckGo search</p>
               <p>✓ Encrypted history</p>
-              <p>✓ Private search</p>
+              <p>✓ Private browsing</p>
             </div>
           </div>
         </div>
